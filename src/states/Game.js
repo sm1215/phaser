@@ -1,6 +1,5 @@
 /* globals __DEV__ */
 import Phaser from 'phaser';
-import Mushroom from '../sprites/Mushroom';
 
 export default class extends Phaser.State {
   init () {
@@ -9,6 +8,8 @@ export default class extends Phaser.State {
     this.player = {};
     this.cursors = {};
     this.spikes = {};
+    this.score = 0;
+    this.scoreText = {};
   }
 
   preload () {}
@@ -19,6 +20,8 @@ export default class extends Phaser.State {
     var player = this.player;
     var cursors = this.cursors;
     var spikes = this.spikes;
+    var score = this.score;
+    var scoreText = this.scoreText;
 
     game.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -39,17 +42,21 @@ export default class extends Phaser.State {
     spikes = game.add.group();
     spikes.enableBody = true;
 
-    for(var i = 0; i < 3; i++) {
+    for(var i = 0; i < 5; i++) {
       //Should align the height based on the position of the ground
       var spike = spikes.create(i * 150, game.world.height - 100, 'spike');
       spike.body.gravity.y = 300;
     }
+
+    scoreText = game.add.text(16, 16, `Score: ${score}`, { fontSize: '18px', fill: '#222' });
 
     this.platforms = platforms;
     this.ground = ground;
     this.player = player;
     this.cursors = cursors;
     this.spikes = spikes;
+    this.score = score;
+    this.scoreText = scoreText;
   }
 
   update (){
@@ -59,12 +66,13 @@ export default class extends Phaser.State {
     var player = this.player;
     var cursors = this.cursors;
     var spikes = this.spikes;
+    var score = this.score;
+    var scoreText = this.scoreText;
 
     //Collide player and platforms
     game.physics.arcade.collide(player, platforms);
     game.physics.arcade.collide(spikes, platforms);
-    game.physics.arcade.collide(player, spikes);
-    game.physics.arcade.collide(spikes, spikes);
+    game.physics.arcade.overlap(player, spikes, this.playerDies, null, this);
 
     //Player movement
     player.body.velocity.x = 0;
@@ -80,11 +88,22 @@ export default class extends Phaser.State {
       player.body.velocity.x = 150;
     }
 
+    score += 1;
+    scoreText.text = `Score: ${score}`;
+
     this.platforms = platforms;
     this.ground = ground;
     this.player = player;
     this.cursors = cursors;
     this.spikes = spikes;
+    this.score = score;
+    this.scoreText = scoreText;
+  }
+
+  playerDies () {
+    game.score = this.score;
+    game.scoreText = this.scoreText;
+    this.state.start('End');
   }
 
   render () {
