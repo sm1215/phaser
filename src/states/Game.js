@@ -8,6 +8,11 @@ export default class extends Phaser.State {
     this.player = {};
     this.cursors = {};
     this.spikes = {};
+    this.spikeLimit = 5;
+    this.spikeRespawnTime = 0;
+    this.spikeRespawnLimits = { min: 3000, max: 5000 }; //ms
+    this.spikeDied = 0;
+    this.spikeSpawned = 0;
     this.score = 0;
     this.scoreText = {};
   }
@@ -15,95 +20,89 @@ export default class extends Phaser.State {
   preload () {}
 
   create () {
-    var platforms = this.platforms;
-    var ground = this.ground;
-    var player = this.player;
-    var cursors = this.cursors;
-    var spikes = this.spikes;
-    var score = this.score;
-    var scoreText = this.scoreText;
-
     game.physics.startSystem(Phaser.Physics.ARCADE);
 
-    platforms = game.add.group();
-    platforms.enableBody = true;
+    this.platforms = game.add.group();
+    this.platforms.enableBody = true;
 
-    ground = platforms.create(0, game.world.height - 20, 'ground');
-    ground.scale.setTo(game.world.width, 1);
-    ground.body.immovable = true;
+    this.ground = this.platforms.create(0, game.world.height - 20, 'ground');
+    this.ground.scale.setTo(game.world.width * 2, 1);
+    this.ground.body.immovable = true;
 
-    player = game.add.sprite(32, game.world.height - 200, 'player');
-    game.physics.arcade.enable(player);
-    player.body.gravity.y = 500;
-    player.body.collideWorldBounds = true;
+    this.player = game.add.sprite(32, game.world.height - 200, 'player');
+    game.physics.arcade.enable(this.player);
+    this.player.width = 40;
+    this.player.height = 70;
+    this.player.body.gravity.y = 500;
+    this.player.body.collideWorldBounds = true;
 
-    cursors = game.input.keyboard.createCursorKeys();
+    this.cursors = game.input.keyboard.addKeys({ 'up': Phaser.KeyCode['SPACEBAR'] })
 
-    spikes = game.add.group();
-    spikes.enableBody = true;
+    this.spikes = game.add.group();
+    this.spikes.enableBody = true;
 
-    for(var i = 0; i < 5; i++) {
-      //Should align the height based on the position of the ground
-      var spike = spikes.create(i * 150, game.world.height - 100, 'spike');
+    for(var i = 0; i < this.spikeLimit; i++) {
+      var spike = this.spikes.create(i * 300, game.world.height - 100, 'spike');
       spike.body.gravity.y = 300;
     }
 
-    scoreText = game.add.text(16, 16, `Score: ${score}`, { fontSize: '18px', fill: '#222' });
-
-    this.platforms = platforms;
-    this.ground = ground;
-    this.player = player;
-    this.cursors = cursors;
-    this.spikes = spikes;
-    this.score = score;
-    this.scoreText = scoreText;
+    this.scoreText = game.add.text(16, 16, `Score: ${this.score}`, { fontSize: '18px', fill: '#222' });
   }
 
   update (){
-
-    var platforms = this.platforms;
-    var ground = this.ground;
-    var player = this.player;
-    var cursors = this.cursors;
-    var spikes = this.spikes;
-    var score = this.score;
-    var scoreText = this.scoreText;
-
     //Collide player and platforms
-    game.physics.arcade.collide(player, platforms);
-    game.physics.arcade.collide(spikes, platforms);
-    game.physics.arcade.overlap(player, spikes, this.playerDies, null, this);
+    game.physics.arcade.collide([this.player, this.spikes], this.platforms);
+    // leaving out the death condition for now
+    // game.physics.arcade.overlap(this.player, this.spikes, this.playerDies, null, this);
 
-    //Player movement
-    player.body.velocity.x = 0;
-    // spikes.body.velocity.x = 0;
-
-    if(cursors.up.isDown && player.body.touching.down){
-      player.body.velocity.y = -250;
+    //Scroll everything
+    this.platforms.forEach((platform) => {
+      platform.body.velocity.x = -100;
+    });
+    //There's some weirdness with this check where the player's velocity gets brought back up to 100 with a slight delay causing them to slide backwards slightly.
+    if(this.player.body.touching.down){
+      this.player.body.velocity.x = 100;
     }
-    if(cursors.left.isDown) {
-      player.body.velocity.x = -150;
+    if(this.player.body.wasTouching.down && !this.player.body.touching.down){
+      this.player.body.velocity.x = 3;
     }
-    if(cursors.right.isDown) {
-      player.body.velocity.x = 150;
+    //End weirdness hacky fix - probably a better way to do this
+
+    if(this.cursors.up.isDown && this.player.body.touching.down){
+      this.player.body.velocity.x = 0;
+      this.player.body.velocity.y = -250;
     }
 
-    score += 1;
-    scoreText.text = `Score: ${score}`;
+    //Check if spike has scrolled off to the left
+    this.spikes.forEach((spike) => {
+      if(spike.position.x < (0 - spike.width)){
+        spike.kill();
+        spike.position.x = game.world.width + spike.width;
+        this.spikeDied = window.performance.now();
+        this.spikeRespawnTime = this.spikeRespawnLimits.min + this.spikeRespawnLimits.max * Math.random();
+      }
+    });
 
-    this.platforms = platforms;
-    this.ground = ground;
-    this.player = player;
-    this.cursors = cursors;
-    this.spikes = spikes;
-    this.score = score;
-    this.scoreText = scoreText;
+    //Check if we need to spawn a new spike
+    if((this.spikes.countLiving() < this.spikeLimit)){
+      let spike = this.spikes.getFirstDead();
+      let now = window.performance.now();
+      if(now - this.spikeDied > this.spikeRespawnTime && now - this.spikeSpawned > this.spikeRespawnTime){
+        spike.alive = true;
+        spike.exists = true;
+        spike.visible = true;
+        this.spikeSpawned = now;
+      }
+    }
+
+    this.score += 1;
+    this.scoreText.text = `Score: ${this.score}`;
   }
 
   playerDies () {
-    game.score = this.score;
-    game.scoreText = this.scoreText;
-    this.state.start('End');
+    console.log('end score', this.score);
+    // game.score = this.score;
+    // this.state.start('End');
   }
 
   render () {
