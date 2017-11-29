@@ -36,7 +36,11 @@ export default class extends Phaser.State {
     this.player.body.gravity.y = 500;
     this.player.body.collideWorldBounds = true;
 
-    this.cursors = game.input.keyboard.addKeys({ 'up': Phaser.KeyCode['SPACEBAR'] })
+    this.cursors = game.input.keyboard.addKeys({
+      'up': Phaser.KeyCode['SPACEBAR'],
+      'right': Phaser.KeyCode['D'],
+      'left': Phaser.KeyCode['A']
+    });
 
     this.spikes = game.add.group();
     this.spikes.enableBody = true;
@@ -60,16 +64,27 @@ export default class extends Phaser.State {
       platform.body.velocity.x = -100;
     });
     //There's some weirdness with this check where the player's velocity gets brought back up to 100 with a slight delay causing them to slide backwards slightly.
-    if(this.player.body.touching.down){
-      this.player.body.velocity.x = 100;
-    }
-    if(this.player.body.wasTouching.down && !this.player.body.touching.down){
-      this.player.body.velocity.x = 3;
-    }
+    // if(this.player.body.touching.down){
+    //   this.player.body.velocity.x = 100;
+    // }
+    // if(this.player.body.wasTouching.down && !this.player.body.touching.down){
+    //   this.player.body.velocity.x = 3;
+    // }
     //End weirdness hacky fix - probably a better way to do this
 
+    //should set a control value for player velocity with something like "speed" and modify that value based on player's current action.
+    if(this.cursors.right.isDown){
+      this.player.body.velocity.x = 175;
+    }
+    if(this.cursors.left.isDown){
+      this.player.body.velocity.x = -85;
+    }
+    if(!this.player.body.touching.down){
+      this.player.body.velocity.x = this.player.body.velocity.x / 2;
+    }
+
     if(this.cursors.up.isDown && this.player.body.touching.down){
-      this.player.body.velocity.x = 0;
+      // this.player.body.velocity.x = 0;
       this.player.body.velocity.y = -250;
     }
 
