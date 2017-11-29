@@ -8,9 +8,9 @@ export default class extends Phaser.State {
     this.player = {};
     this.cursors = {};
     this.spikes = {};
-    this.spikeLimit = 5;
+    this.spikeLimit = 3;
     this.spikeRespawnTime = 0;
-    this.spikeRespawnLimits = { min: 3000, max: 5000 }; //ms
+    this.spikeRespawnLimits = { min: 0.2, max: 0.5 }; //ms
     this.spikeDied = 0;
     this.spikeSpawned = 0;
     this.score = 0;
@@ -78,8 +78,7 @@ export default class extends Phaser.State {
       if(spike.position.x < (0 - spike.width)){
         spike.kill();
         spike.position.x = game.world.width + spike.width;
-        this.spikeDied = window.performance.now();
-        this.spikeRespawnTime = this.spikeRespawnLimits.min + this.spikeRespawnLimits.max * Math.random();
+        this.spikeRespawnTime = (Math.random() * (this.spikeRespawnLimits.max - this.spikeRespawnLimits.min) + this.spikeRespawnLimits.min) * 10000;
       }
     });
 
@@ -87,7 +86,8 @@ export default class extends Phaser.State {
     if((this.spikes.countLiving() < this.spikeLimit)){
       let spike = this.spikes.getFirstDead();
       let now = window.performance.now();
-      if(now - this.spikeDied > this.spikeRespawnTime && now - this.spikeSpawned > this.spikeRespawnTime){
+
+      if(now - this.spikeSpawned > this.spikeRespawnTime){
         spike.alive = true;
         spike.exists = true;
         spike.visible = true;
