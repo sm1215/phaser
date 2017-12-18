@@ -6,18 +6,22 @@ export default class extends Phaser.State {
     this.platforms = {};
     this.ground = {};
     this.player = {};
+    this.playerRunSpeed = 175;
+    this.playerJumpSpeed = 250;
     this.cursors = {};
-    this.spikes = {};
-    this.spikeLimit = 3;
-    this.spikeRespawnTime = 0;
-    this.spikeRespawnLimits = { min: 0.2, max: 0.5 }; //ms
-    this.spikeDied = 0;
-    this.spikeSpawned = 0;
+    this.buttons = {};
+    this.buttonLimit = 3;
+    this.buttonRespawnTime = 0;
+    this.buttonRespawnLimits = { min: 0.2, max: 0.5 }; //ms
+    this.buttonDied = 0;
+    this.buttonSpawned = 0;
     this.score = 0;
     this.scoreText = {};
   }
 
-  preload () {}
+  preload () {
+    game.load.spritesheet('button', 'assets/sprites/button-sprite-sheet.png', 30, 30);
+  }
 
   create () {
     game.physics.startSystem(Phaser.Physics.ARCADE);
@@ -31,6 +35,8 @@ export default class extends Phaser.State {
 
     this.player = game.add.sprite(32, game.world.height - 200, 'player');
     game.physics.arcade.enable(this.player);
+    this.player.runSpeed = this.playerRunSpeed;
+    this.player.jumpSpeed = this.playerJumpSpeed;
     this.player.width = 40;
     this.player.height = 70;
     this.player.body.gravity.y = 500;
@@ -42,12 +48,16 @@ export default class extends Phaser.State {
       'left': Phaser.KeyCode['A']
     });
 
-    this.spikes = game.add.group();
-    this.spikes.enableBody = true;
+    this.buttons = game.add.group();
+    this.buttons.enableBody = true;
 
-    for(var i = 0; i < this.spikeLimit; i++) {
-      var spike = this.spikes.create(i * 300, game.world.height - 100, 'spike');
-      spike.body.gravity.y = 300;
+    for(var i = 0; i < this.buttonLimit; i++) {
+      var button = this.buttons.create(i * 300, game.world.height - 100, 'button');
+      button.animations.add('press', true)
+      button.body.gravity.y = 300;
+      button.width = 30;
+      button.height = 30;
+      this.buttons.add(button);
     }
 
     this.scoreText = game.add.text(16, 16, `Score: ${this.score}`, { fontSize: '18px', fill: '#222' });
@@ -55,9 +65,9 @@ export default class extends Phaser.State {
 
   update (){
     //Collide player and platforms
-    game.physics.arcade.collide([this.player, this.spikes], this.platforms);
+    game.physics.arcade.collide([this.player, this.buttons], this.platforms);
     // leaving out the death condition for now
-    // game.physics.arcade.overlap(this.player, this.spikes, this.playerDies, null, this);
+    game.physics.arcade.overlap(this.player, this.buttons, this.playerDies, null, this);
 
     //Scroll everything
     this.platforms.forEach((platform) => {
@@ -72,41 +82,43 @@ export default class extends Phaser.State {
     // }
     //End weirdness hacky fix - probably a better way to do this
 
+    this.player.body.velocity.x = 0;
+
     //should set a control value for player velocity with something like "speed" and modify that value based on player's current action.
     if(this.cursors.right.isDown){
-      this.player.body.velocity.x = 175;
+      this.player.body.velocity.x = this.player.runSpeed;
     }
     if(this.cursors.left.isDown){
-      this.player.body.velocity.x = -85;
+      this.player.body.velocity.x = -Math.abs(this.player.runSpeed / 2);//-85;
     }
     if(!this.player.body.touching.down){
-      this.player.body.velocity.x = this.player.body.velocity.x / 2;
+      this.player.body.velocity.x = this.player.runSpeed / 2;
     }
 
     if(this.cursors.up.isDown && this.player.body.touching.down){
       // this.player.body.velocity.x = 0;
-      this.player.body.velocity.y = -250;
+      this.player.body.velocity.y = -Math.abs(this.player.jumpSpeed);
     }
 
-    //Check if spike has scrolled off to the left
-    this.spikes.forEach((spike) => {
-      if(spike.position.x < (0 - spike.width)){
-        spike.kill();
-        spike.position.x = game.world.width + spike.width;
-        this.spikeRespawnTime = (Math.random() * (this.spikeRespawnLimits.max - this.spikeRespawnLimits.min) + this.spikeRespawnLimits.min) * 10000;
+    //Check if button has scrolled off to the left
+    this.buttons.forEach((button) => {
+      if(button.position.x < (0 - button.width)){
+        button.kill();
+        button.position.x = game.world.width + button.width;
+        this.buttonRespawnTime = (Math.random() * (this.buttonRespawnLimits.max - this.buttonRespawnLimits.min) + this.buttonRespawnLimits.min) * 10000;
       }
     });
 
-    //Check if we need to spawn a new spike
-    if((this.spikes.countLiving() < this.spikeLimit)){
-      let spike = this.spikes.getFirstDead();
+    //Check if we need to spawn a new button
+    if((this.buttons.countLiving() < this.buttonLimit)){
+      let button = this.buttons.getFirstDead();
       let now = window.performance.now();
 
-      if(now - this.spikeSpawned > this.spikeRespawnTime){
-        spike.alive = true;
-        spike.exists = true;
-        spike.visible = true;
-        this.spikeSpawned = now;
+      if(now - this.buttonSpawned > this.buttonRespawnTime){
+        button.alive = true;
+        button.exists = true;
+        button.visible = true;
+        this.buttonSpawned = now;
       }
     }
 
@@ -114,8 +126,11 @@ export default class extends Phaser.State {
     this.scoreText.text = `Score: ${this.score}`;
   }
 
-  playerDies () {
+  playerDies (player, button) {
+
     console.log('end score', this.score);
+
+
     // game.score = this.score;
     // this.state.start('End');
   }
